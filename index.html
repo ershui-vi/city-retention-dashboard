@@ -142,7 +142,7 @@ const fmtW = n => { // 课耗金额转万元
 // ---- compute city course metrics for a given month (exclude 体验课程) ----
 function computeCourse(month){
   const byCity = {};
-  let natCum={amt:0,cnt:0,reg_amt:0,reg_cnt:0,mon_amt:0,mon_cnt:0,mon_reg_amt:0,mon_reg_cnt:0};
+  let natCum={cum_amt:0,cum_cnt:0,reg_amt:0,reg_cnt:0,mon_amt:0,mon_cnt:0,mon_reg_amt:0,mon_reg_cnt:0};
   for(const r of DATA.coursecost_detail){
     if(r.month==null) continue;
     const c = r.city;
@@ -150,7 +150,7 @@ function computeCourse(month){
     const o=byCity[c];
     const isReg = r.type==='常规课程';
     const isTrial = r.type==='体验课程';
-    if(r.month<=month && !isTrial){ o.cum_amt+=r.amt; o.cum_cnt+=r.cnt; natCum.amt+=r.amt; natCum.cnt+=r.cnt; }
+    if(r.month<=month && !isTrial){ o.cum_amt+=r.amt; o.cum_cnt+=r.cnt; natCum.cum_amt+=r.amt; natCum.cum_cnt+=r.cnt; }
     if(r.month<=month && isReg){ o.reg_amt+=r.amt; o.reg_cnt+=r.cnt; natCum.reg_amt+=r.amt; natCum.reg_cnt+=r.cnt; }
     if(r.month===month && !isTrial){ o.mon_amt+=r.amt; o.mon_cnt+=r.cnt; natCum.mon_amt+=r.amt; natCum.mon_cnt+=r.cnt; }
     if(r.month===month && isReg){ o.mon_reg_amt+=r.amt; o.mon_reg_cnt+=r.cnt; natCum.mon_reg_amt+=r.amt; natCum.mon_reg_cnt+=r.cnt; }
@@ -283,7 +283,7 @@ function renderCourse(month,cityFilter){
   // table
   const t=document.getElementById('courseTable');
   let rows=`<thead><tr><th>城市</th><th>累计课耗</th><th>累计课次</th><th>本年课单价</th><th>累计常规课课耗</th><th>累计常规课课次</th><th>常规课单价</th><th>当月课耗</th><th>当月课次</th><th>当月课单价</th><th>当月常规课课耗</th><th>当月常规课课次</th></tr></thead><tbody>`;
-  for(const c of cities){
+  for(const c of ['全国',...cities]){
     const o=cm[c];
     rows+=`<tr><td>${c}</td><td>${fmtW(o.cum_amt)}</td><td>${fmtN(o.cum_cnt)}</td><td>${fmt1(o.cum_price)}</td><td>${fmtW(o.reg_amt)}</td><td>${fmtN(o.reg_cnt)}</td><td>${fmt1(o.reg_price)}</td><td>${fmtW(o.mon_amt)}</td><td>${fmtN(o.mon_cnt)}</td><td>${fmt1(o.mon_price)}</td><td>${fmtW(o.mon_reg_amt)}</td><td>${fmtN(o.mon_reg_cnt)}</td></tr>`;
   }
@@ -352,9 +352,9 @@ function renderRetention(month,cityFilter){
   const t=document.getElementById('retTable');
   const tCities=Object.keys(ystart).sort((a,b)=>newCum[b]-newCum[a]);
   let rows=`<thead><tr><th>城市</th><th>年初在籍</th><th>期末在籍(6月)</th><th>老生留存人数</th><th>老生留存率</th><th>本年新招生(截至${MONTHS[Math.min(month,6)-1]})</th><th>期末留存新招生(6月)</th><th>新招生留存率</th></tr></thead><tbody>`;
-  for(const c of tCities){
+  for(const c of ['全国',...tCities]){
     const s=snapByCity[c]||{};
-    rows+=`<tr><td>${c}</td><td>${fmtN(ystart[c])}</td><td>${fmtN(s.year_end_n)}</td><td>${fmtN(s.old_retain_n)}</td><td>${fmtPct(s.old_retain_rate)}</td><td>${fmtN(newCum[c])}</td><td>${fmtN(s.new_retain_n)}</td><td>${fmtPct(s.new_retain_rate)}</td></tr>`;
+    rows+=`<tr><td>${c}</td><td>${fmtN(s.year_start_n!=null?s.year_start_n:ystart[c])}</td><td>${fmtN(s.year_end_n)}</td><td>${fmtN(s.old_retain_n)}</td><td>${fmtPct(s.old_retain_rate)}</td><td>${fmtN(newCum[c])}</td><td>${fmtN(s.new_retain_n)}</td><td>${fmtPct(s.new_retain_rate)}</td></tr>`;
   }
   rows+='</tbody>';
   t.innerHTML=rows;
