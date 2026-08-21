@@ -367,10 +367,10 @@ function renderRetention(month,cityFilter){
   const rLabels = MONTHS.slice(0, cap);
   const rslice = a => (a || []).slice(0, cap);
   const rEnr = rslice(src.enrolled), rOldArr = rslice(src.old_retain);
-  const rOldRate = rOldArr.map(v => (src.year_start ? v / src.year_start : 0));
+  const rOldRate = rOldArr.map(v => (src.year_start ? v / src.year_start : 0) * 100);
   const rNCum = rslice(src.new_cum), rNRet = rslice(src.new_retain);
-  const rNRate = rNRet.map((v, i) => (rNCum[i] ? v / rNCum[i] : 0));
-  const rTip = { label: c => c.dataset.type === 'line' ? c.dataset.label + ': ' + fmtPct(c.raw) : c.dataset.label + ': ' + fmtN(c.raw) };
+  const rNRate = rNRet.map((v, i) => (rNCum[i] ? v / rNCum[i] : 0) * 100);
+  const rTip = { label: c => c.dataset.type === 'line' ? c.dataset.label + ': ' + (Math.round(c.raw * 10) / 10) + '%' : c.dataset.label + ': ' + fmtN(c.raw) };
   destroy('rOld');
   charts.rOld = new Chart(document.getElementById('rOld'), {
     type: 'bar',
