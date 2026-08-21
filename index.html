@@ -46,6 +46,10 @@ h1{font-size:20px;font-weight:700;margin-bottom:4px}
 .ctrl label{font-weight:600;color:var(--txt)}
 .grow{flex:1 1 auto}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.ret-groups{display:flex;gap:12px;margin-bottom:16px}
+.ret-groups .ret-left{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;min-width:0}
+.ret-groups .ret-right{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;min-width:0}
+@media(max-width:1100px){.ret-groups{flex-direction:column}.ret-groups .ret-left,.ret-groups .ret-right{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
 .card .k{font-size:12px;color:var(--txt2);margin-bottom:4px}
 .card .v{font-size:20px;font-weight:700}
@@ -109,7 +113,7 @@ tbody tr:hover{background:var(--panel2)}
 
 <!-- 城市留存率 -->
 <div id="panel-retention" class="tab-panel">
-  <div class="cards" id="retCards"></div>
+  <div class="ret-groups" id="retCards"></div>
   <div class="grid">
     <div class="panel"><h3>老生留存率 vs 新招生留存率（各城市）</h3><div class="chartbox tall"><canvas id="rCompare"></canvas></div></div>
     <div class="panel"><h3>本年新招生累计（截至所选月）</h3><div class="chartbox tall"><canvas id="rNewCum"></canvas></div></div>
@@ -312,15 +316,19 @@ function renderRetention(month,cityFilter){
     old_retain_rate:natStart?natOldN/natStart:0,
     new_retain_n:natNewRetN, new_retain_rate:natNewCum?natNewRetN/natNewCum:0
   };
-  const cards=[
+  const leftCards=[
     {k:'年初在籍(全国)',v:fmtN(nat.year_start_n)},
     {k:'期末在籍(全国·6月)',v:fmtN(nat.year_end_n)},
     {k:'老生留存人数(全国·6月)',v:fmtN(nat.old_retain_n)},
     {k:'老生留存率(全国)',v:fmtPct(nat.old_retain_rate)},
-    {k:'本年新招生累计(截至'+MONTHS[Math.min(month,6)-1]+')',v:fmtN(natNewCum)},
+  ];
+  const rightCards=[
+    {k:'新招生人数(截至'+MONTHS[Math.min(month,6)-1]+')',v:fmtN(natNewCum)},
+    {k:'新招生留存人数(全国·6月)',v:fmtN(nat.new_retain_n)},
     {k:'新招生留存率(全国)',v:fmtPct(nat.new_retain_rate)},
   ];
-  document.getElementById('retCards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}</div></div>`).join('');
+  const cardHTML=a=>a.map(c=>`<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}</div></div>`).join('');
+  document.getElementById('retCards').innerHTML=`<div class="ret-left">${cardHTML(leftCards)}</div><div class="ret-right">${cardHTML(rightCards)}</div>`;
 
   const showCities = cityFilter?[cityFilter]:cities.slice(0,15);
   // chart1 compare old vs new retention
