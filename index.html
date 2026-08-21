@@ -292,9 +292,11 @@ function renderCourse(month,cityFilter){
 }
 
 function renderRetention(month,cityFilter){
+  if(cityFilter==='大连') cityFilter=null; // 大连数据已剔除，选大连时退化为默认列表
   const snap=DATA.retention_snapshot.rows;
   const snapByCity={}; snap.forEach(r=>snapByCity[r.city]=r);
-  const ystart=DATA.year_start_baseline.counts;
+  const ystart={...DATA.year_start_baseline.counts};
+  delete ystart['大连']; // 城市留存率剔除大连
   const newCum=computeNewRecruit(month);
   const cities=Object.keys(ystart).sort((a,b)=>(snapByCity[b]?.old_retain_rate||0)-(snapByCity[a]?.old_retain_rate||0));
   // national
