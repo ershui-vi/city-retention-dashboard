@@ -299,13 +299,24 @@ function renderRetention(month,cityFilter){
   delete ystart['大连']; // 城市留存率剔除大连
   const newCum=computeNewRecruit(month);
   const cities=Object.keys(ystart).sort((a,b)=>(snapByCity[b]?.old_retain_rate||0)-(snapByCity[a]?.old_retain_rate||0));
-  // national
-  const nat=snapByCity['全国']||{};
+  // national (excl 大连: 快照全国行 - 大连行, 留存率重算)
+  const dl=snapByCity['大连']||{};
+  const nr=snapByCity['全国']||{};
+  const natStart=(nr.year_start_n||0)-(dl.year_start_n||0);
+  const natEnd=(nr.year_end_n||0)-(dl.year_end_n||0);
+  const natOldN=(nr.old_retain_n||0)-(dl.old_retain_n||0);
+  const natNewRetN=(nr.new_retain_n||0)-(dl.new_retain_n||0);
+  const natNewCum=(newCum['全国']||0)-(newCum['大连']||0);
+  const nat={
+    year_start_n:natStart, year_end_n:natEnd, old_retain_n:natOldN,
+    old_retain_rate:natStart?natOldN/natStart:0,
+    new_retain_n:natNewRetN, new_retain_rate:natNewCum?natNewRetN/natNewCum:0
+  };
   const cards=[
     {k:'年初在籍(全国)',v:fmtN(nat.year_start_n)},
     {k:'期末在籍(全国·6月)',v:fmtN(nat.year_end_n)},
     {k:'老生留存率(全国)',v:fmtPct(nat.old_retain_rate)},
-    {k:'本年新招生累计(截至'+MONTHS[Math.min(month,6)-1]+')',v:fmtN(newCum['全国'])},
+    {k:'本年新招生累计(截至'+MONTHS[Math.min(month,6)-1]+')',v:fmtN(natNewCum)},
     {k:'新招生留存率(全国)',v:fmtPct(nat.new_retain_rate)},
     {k:'老生留存人数(全国·6月)',v:fmtN(nat.old_retain_n)},
   ];
@@ -334,8 +345,8 @@ function renderRetention(month,cityFilter){
   destroy('rTrend');
   const trendCities = cityFilter?[cityFilter]:['北京','西安','武汉','深圳','杭州'];
   const tdatasets=[];
-  // national
-  const natArr=[]; for(let m=1;m<=6;m++){let s=0;for(const c in DATA.new_recruits){s+=DATA.new_recruits[c][m]||0;}natArr.push(s);}
+  // national (excl 大连)
+  const natArr=[]; for(let m=1;m<=6;m++){let s=0;for(const c in DATA.new_recruits){if(c==='大连')continue;s+=DATA.new_recruits[c][m]||0;}natArr.push(s);}
   tdatasets.push({label:'全国',data:natArr,borderColor:'#ef4444',backgroundColor:'transparent',borderWidth:2.5,tension:.3,fill:false});
   trendCities.forEach((c,i)=>{const arr=[];for(let m=1;m<=6;m++)arr.push(DATA.new_recruits[c]?.[m]||0);tdatasets.push({label:c,data:arr,borderColor:PALETTE[i%PALETTE.length],backgroundColor:'transparent',borderWidth:1.8,tension:.3,fill:false});});
   charts.rTrend=new Chart(document.getElementById('rTrend'),{
