@@ -67,6 +67,7 @@ th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border);whi
 th{color:var(--txt2);font-weight:600;position:sticky;top:0;background:var(--panel2)}
 th:first-child,td:first-child{text-align:left}
 tbody tr:hover{background:var(--panel2)}
+tbody tr.sumrow{background:rgba(59,130,246,.12);font-weight:600}
 .tblwrap{max-height:420px;overflow:auto;border:1px solid var(--border);border-radius:8px}
 .note{font-size:11px;color:var(--txt2);margin-top:6px;padding:6px 10px;background:rgba(59,130,246,.08);border-left:3px solid var(--accent);border-radius:4px}
 .tab-panel{display:none}
@@ -101,7 +102,7 @@ tbody tr:hover{background:var(--panel2)}
     <div class="panel"><h3 id="cCumTrendTitle">各城市累计课次与累计客单价</h3><div class="chartbox tall"><canvas id="cCumTrend"></canvas></div></div>
     <div class="panel"><h3 id="cMonTrendTitle">各月课次与当月客单价趋势（全国 · 1-7月）</h3><div class="chartbox tall"><canvas id="cMonTrend"></canvas></div></div>
   </div>
-  <div class="panel"><h3>城市课次明细表</h3>
+  <div class="panel"><h3 id="courseTableTitle">城市课次明细表</h3>
     <div class="tblwrap"><table id="courseTable"></table></div>
     <div class="note">累计=所选月及之前所有月份合计（排除体验课程）；当月=所选月单月；课单价=课耗÷课次。数据与Excel「城市课次」快照完全对齐。</div>
   </div>
@@ -278,15 +279,38 @@ function renderCourse(month,cityFilter){
   });
   document.getElementById('cCumTrendTitle').textContent = isNat ? '各城市累计课次与累计客单价（截至'+MONTHS[month-1]+'）' : cityFilter+'各校区累计课次与累计客单价（截至'+MONTHS[month-1]+'）';
   document.getElementById('cMonTrendTitle').textContent = '各月课次与当月客单价趋势（全国 · 1-7月）';
-  // table
+  // table (全国=城市维度; 选城市=该城市各校区维度)
   const t=document.getElementById('courseTable');
-  let rows=`<thead><tr><th>城市</th><th>累计课耗</th><th>累计课次</th><th>本年课单价</th><th>累计常规课课耗</th><th>累计常规课课次</th><th>常规课单价</th><th>当月课耗</th><th>当月课次</th><th>当月课单价</th><th>当月常规课课耗</th><th>当月常规课课次</th></tr></thead><tbody>`;
-  for(const c of ['全国',...cities]){
-    const o=cm[c];
-    rows+=`<tr><td>${c}</td><td>${fmtW(o.cum_amt)}</td><td>${fmtN(o.cum_cnt)}</td><td>${fmt1(o.cum_price)}</td><td>${fmtW(o.reg_amt)}</td><td>${fmtN(o.reg_cnt)}</td><td>${fmt1(o.reg_price)}</td><td>${fmtW(o.mon_amt)}</td><td>${fmtN(o.mon_cnt)}</td><td>${fmt1(o.mon_price)}</td><td>${fmtW(o.mon_reg_amt)}</td><td>${fmtN(o.mon_reg_cnt)}</td></tr>`;
+  const THEAD=(dim)=>`<thead><tr><th>${dim}</th><th>累计课耗</th><th>累计课次</th><th>本年课单价</th><th>累计常规课课耗</th><th>累计常规课课次</th><th>常规课单价</th><th>当月课耗</th><th>当月课次</th><th>当月课单价</th><th>当月常规课课耗</th><th>当月常规课课次</th></tr></thead><tbody>`;
+  const TROW=(name,o,cls)=>`<tr${cls?` class="${cls}"`:''}><td>${name}</td><td>${fmtW(o.cum_amt)}</td><td>${fmtN(o.cum_cnt)}</td><td>${fmt1(o.cum_price)}</td><td>${fmtW(o.reg_amt)}</td><td>${fmtN(o.reg_cnt)}</td><td>${fmt1(o.reg_price)}</td><td>${fmtW(o.mon_amt)}</td><td>${fmtN(o.mon_cnt)}</td><td>${fmt1(o.mon_price)}</td><td>${fmtW(o.mon_reg_amt)}</td><td>${fmtN(o.mon_reg_cnt)}</td></tr>`;
+  let rows;
+  if(isNat){
+    rows=THEAD('城市');
+    rows+=TROW('全国',cm['全国'],'sumrow');
+    for(const c of cities){ rows+=TROW(c,cm[c]); }
+  }else{
+    // campus-level for selected city
+    const byCamp={};
+    for(const r of DATA.coursecost_detail){
+      if(r.month==null || r.city!==cityFilter) continue;
+      const k=r.campus||r.city;
+      if(!byCamp[k]) byCamp[k]={cum_amt:0,cum_cnt:0,reg_amt:0,reg_cnt:0,mon_amt:0,mon_cnt:0,mon_reg_amt:0,mon_reg_cnt:0};
+      const o=byCamp[k];
+      const isReg=r.type==='常规课程'; const isTrial=r.type==='体验课程';
+      if(r.month<=month && !isTrial){ o.cum_amt+=r.amt; o.cum_cnt+=r.cnt; }
+      if(r.month<=month && isReg){ o.reg_amt+=r.amt; o.reg_cnt+=r.cnt; }
+      if(r.month===month && !isTrial){ o.mon_amt+=r.amt; o.mon_cnt+=r.cnt; }
+      if(r.month===month && isReg){ o.mon_reg_amt+=r.amt; o.mon_reg_cnt+=r.cnt; }
+    }
+    for(const k in byCamp){ const o=byCamp[k]; o.cum_price=o.cum_cnt?o.cum_amt/o.cum_cnt:0; o.reg_price=o.reg_cnt?o.reg_amt/o.reg_cnt:0; o.mon_price=o.mon_cnt?o.mon_amt/o.mon_cnt:0; }
+    const campKeys=Object.keys(byCamp).sort((a,b)=>byCamp[b].cum_amt-byCamp[a].cum_amt);
+    rows=THEAD('校区');
+    rows+=TROW(cityFilter+'合计',cm[cityFilter],'sumrow');
+    for(const k of campKeys){ rows+=TROW(k,byCamp[k]); }
   }
   rows+='</tbody>';
   t.innerHTML=rows;
+  document.getElementById('courseTableTitle').textContent = isNat ? '城市课次明细表' : cityFilter+'各校区课次明细表';
 }
 
 function renderRetention(month,cityFilter){
