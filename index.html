@@ -219,19 +219,21 @@ function renderCourse(month,cityFilter){
   const cm=computeCourse(month);
   const cities=Object.keys(cm).filter(c=>c!=='全国').sort((a,b)=>cm[b].cum_amt-cm[a].cum_amt);
   const nat=cm['全国'];
-  // cards
+  const isNat = !cityFilter || cityFilter==='全国';
+  // cards (随城市联动: 全国=全国数据, 选城市=该城市数据)
+  const scope = isNat ? '全国' : cityFilter;
+  const sc = isNat ? nat : (cm[cityFilter]||{cum_amt:0,cum_cnt:0,cum_price:0,mon_amt:0,mon_cnt:0,mon_price:0});
   const cards=[
-    {k:'累计课耗(全国)',v:fmtW(nat.cum_amt)},
-    {k:'累计课次(全国)',v:fmtN(nat.cum_cnt)},
-    {k:'本年课单价(全国)',v:fmt1(nat.cum_price),u:'元'},
-    {k:'当月课耗('+MONTHS[month-1]+')',v:fmtW(nat.mon_amt)},
-    {k:'当月课次('+MONTHS[month-1]+')',v:fmtN(nat.mon_cnt)},
-    {k:'当月课单价('+MONTHS[month-1]+')',v:fmt1(nat.mon_price),u:'元'},
+    {k:'累计课耗('+scope+')',v:fmtW(sc.cum_amt)},
+    {k:'累计课次('+scope+')',v:fmtN(sc.cum_cnt)},
+    {k:'本年课单价('+scope+')',v:fmt1(sc.cum_price),u:'元'},
+    {k:'当月课耗('+MONTHS[month-1]+')',v:fmtW(sc.mon_amt)},
+    {k:'当月课次('+MONTHS[month-1]+')',v:fmtN(sc.mon_cnt)},
+    {k:'当月课单价('+MONTHS[month-1]+')',v:fmt1(sc.mon_price),u:'元'},
   ];
   document.getElementById('courseCards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}${c.u?'<small>'+c.u+'</small>':''}</div></div>`).join('');
 
   // ---- 组合图1: 实体累计（横轴=城市/校区; 柱=累计课次, 折线=累计客单价·次轴） ----
-  const isNat = !cityFilter || cityFilter==='全国';
   const ent={};
   for(const r of DATA.coursecost_detail){
     if(r.type==='体验课程' || r.month>month) continue;
