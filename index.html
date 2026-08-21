@@ -237,7 +237,7 @@ function renderCourse(month,cityFilter){
     if(isNat){ if(r.city==='全国'||r.city==='大连') continue; const k=r.city; (ent[k]=ent[k]||{cnt:0,amt:0}); ent[k].cnt+=r.cnt; ent[k].amt+=r.amt; }
     else { if(r.city!==cityFilter) continue; const k=r.campus||r.city; (ent[k]=ent[k]||{cnt:0,amt:0}); ent[k].cnt+=r.cnt; ent[k].amt+=r.amt; }
   }
-  const entKeys=Object.keys(ent).sort((a,b)=>ent[b].cnt-ent[a].cnt);
+  const entKeys=Object.keys(ent).sort((a,b)=>(ent[b].cnt?ent[b].amt/ent[b].cnt:0)-(ent[a].cnt?ent[a].amt/ent[a].cnt:0));
   const entCnt=entKeys.map(k=>ent[k].cnt);
   const entPrice=entKeys.map(k=>ent[k].cnt?ent[k].amt/ent[k].cnt:0);
   destroy('cCumTrend');
