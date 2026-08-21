@@ -90,7 +90,7 @@ tbody tr:hover{background:var(--panel2)}
     <select id="monthSel" onchange="render()"></select>
   </div>
   <div class="ctrl"><label>城市</label>
-    <select id="citySel" onchange="render()"><option value="">全部城市</option></select>
+    <select id="citySel" onchange="render()"><option value="全国">全国</option></select>
   </div>
 </div>
 
@@ -98,12 +98,8 @@ tbody tr:hover{background:var(--panel2)}
 <div id="panel-course" class="tab-panel active">
   <div class="cards" id="courseCards"></div>
   <div class="grid">
-    <div class="panel"><h3>各城市累计课耗排名（截至所选月，不含体验课）</h3><div class="chartbox tall"><canvas id="cCumAmt"></canvas></div></div>
-    <div class="panel"><h3>各城市当月课耗（所选月）</h3><div class="chartbox tall"><canvas id="cMonAmt"></canvas></div></div>
-  </div>
-  <div class="grid">
-    <div class="panel"><h3>累计课单价 vs 累计课次（气泡=课耗）</h3><div class="chartbox"><canvas id="cScatter"></canvas></div></div>
-    <div class="panel"><h3>月度课耗趋势（1-7月）</h3><div class="chartbox"><canvas id="cTrend"></canvas></div></div>
+    <div class="panel"><h3 id="cCumTrendTitle">累计课次与累计客单价趋势</h3><div class="chartbox tall"><canvas id="cCumTrend"></canvas></div></div>
+    <div class="panel"><h3 id="cMonTrendTitle">当月课次与当月客单价趋势</h3><div class="chartbox tall"><canvas id="cMonTrend"></canvas></div></div>
   </div>
   <div class="panel"><h3>城市课次明细表</h3>
     <div class="tblwrap"><table id="courseTable"></table></div>
@@ -188,26 +184,15 @@ function computeNewRecruit(month){
 }
 
 // monthly trend (national + top cities by cumulative)
-function monthlyTrend(month, topN){
-  const cities = Object.keys(DATA.coursecost_detail.reduce((a,r)=>{if(r.city!=='全国')a[r.city]=1;return a;},{}));
-  // cumulative national by month
-  const natByM={};
-  for(let m=1;m<=month;m++){
-    let amt=0;
-    for(const r of DATA.coursecost_detail){ if(r.month===m && r.type!=='体验课程' && r.city!=='全国') amt+=r.amt; }
-    natByM[m]=amt;
-  }
-  return {natByM};
-}
 
 function init(){
   // month selector
   const sel=document.getElementById('monthSel');
   for(const m of DATA.coursecost_months){ sel.innerHTML+=`<option value="${m}">${MONTHS[m-1]}</option>`; }
   sel.value=7;
-  // city selector (exclude 全国)
+  // city selector (exclude 全国, 全国为默认首项)
   const citySel=document.getElementById('citySel');
-  const cities=Object.keys(DATA.year_start_baseline.counts).sort();
+  const cities=Object.keys(DATA.year_start_baseline.counts).filter(c=>c!=='全国').sort();
   for(const c of cities){ citySel.innerHTML+=`<option value="${c}">${c}</option>`; }
   render();
 }
@@ -244,46 +229,51 @@ function renderCourse(month,cityFilter){
   ];
   document.getElementById('courseCards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}${c.u?'<small>'+c.u+'</small>':''}</div></div>`).join('');
 
-  const showCities = cityFilter? [cityFilter] : cities.slice(0,15);
-  // chart1 cum amt ranking
-  destroy('cCumAmt');
-  charts.cCumAmt=new Chart(document.getElementById('cCumAmt'),{
+  const showCities = cityFilter&&cityFilter!=='全国' ? [cityFilter] : cities.slice(0,15);
+  // ---- 组合图1: 累计（柱=累计课次, 折线=累计客单价·次轴） ----
+  const isNat = !cityFilter || cityFilter==='全国';
+  const scopeName = isNat ? '全国' : cityFilter;
+  const s = {labels:MONTHS.slice(0,month), cumCnt:[], cumPrice:[], monCnt:[], monPrice:[]};
+  let cc=0, ca=0;
+  for(let m=1;m<=month;m++){
+    let mc=0, ma=0;
+    for(const r of DATA.coursecost_detail){
+      if(r.month!==m || r.type==='体验课程') continue;
+      if(isNat ? (r.city!=='全国' && r.city!=='大连') : (r.city===cityFilter)){ mc+=r.cnt; ma+=r.amt; }
+    }
+    cc+=mc; ca+=ma;
+    s.cumCnt.push(cc); s.cumPrice.push(cc?ca/cc:0);
+    s.monCnt.push(mc); s.monPrice.push(mc?ma/mc:0);
+  }
+  destroy('cCumTrend');
+  charts.cCumTrend=new Chart(document.getElementById('cCumTrend'),{
     type:'bar',
-    data:{labels:showCities,datasets:[{label:'累计课耗(万元)',data:showCities.map(c=>cm[c].cum_amt/10000),backgroundColor:'#3b82f6'}]},
-    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt1(c.raw)+'万'}}},scales:{x:{ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},y:{ticks:{color:'#9fb3c8'},grid:{display:false}}}}
+    data:{labels:s.labels,datasets:[
+      {type:'bar',label:'累计课次',data:s.cumCnt,backgroundColor:'rgba(59,130,246,.7)',borderColor:'#3b82f6',borderWidth:1,borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'累计客单价(元)',data:s.cumPrice,borderColor:'#ef4444',backgroundColor:'transparent',borderWidth:2.5,tension:.3,pointRadius:3,pointBackgroundColor:'#ef4444',yAxisID:'y1'}
+    ]},
+    options:{plugins:{legend:{labels:{color:'#9fb3c8',boxWidth:14,font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.type==='line'?c.dataset.label+': '+fmt1(c.raw)+'元':c.dataset.label+': '+fmtN(c.raw)}}},scales:{
+      x:{ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},
+      y:{position:'left',title:{display:true,text:'课次',color:'#9fb3c8'},ticks:{color:'#9fb3c8',callback:v=>fmtN(v)},grid:{color:'#2c4055'}},
+      y1:{position:'right',title:{display:true,text:'客单价(元)',color:'#ef4444'},ticks:{color:'#ef4444',callback:v=>Number(v).toFixed(0)+'元'},grid:{display:false}}
+    }}
   });
-  // chart2 monthly amt
-  destroy('cMonAmt');
-  charts.cMonAmt=new Chart(document.getElementById('cMonAmt'),{
+  // ---- 组合图2: 当月（柱=当月课次, 折线=当月客单价·次轴） ----
+  destroy('cMonTrend');
+  charts.cMonTrend=new Chart(document.getElementById('cMonTrend'),{
     type:'bar',
-    data:{labels:showCities,datasets:[{label:'当月课耗(万元)',data:showCities.map(c=>cm[c].mon_amt/10000),backgroundColor:'#10b981'}]},
-    options:{indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt1(c.raw)+'万'}}},scales:{x:{ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},y:{ticks:{color:'#9fb3c8'},grid:{display:false}}}}
+    data:{labels:s.labels,datasets:[
+      {type:'bar',label:'当月课次',data:s.monCnt,backgroundColor:'rgba(16,185,129,.7)',borderColor:'#10b981',borderWidth:1,borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'当月客单价(元)',data:s.monPrice,borderColor:'#f59e0b',backgroundColor:'transparent',borderWidth:2.5,tension:.3,pointRadius:3,pointBackgroundColor:'#f59e0b',yAxisID:'y1'}
+    ]},
+    options:{plugins:{legend:{labels:{color:'#9fb3c8',boxWidth:14,font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.type==='line'?c.dataset.label+': '+fmt1(c.raw)+'元':c.dataset.label+': '+fmtN(c.raw)}}},scales:{
+      x:{ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},
+      y:{position:'left',title:{display:true,text:'课次',color:'#9fb3c8'},ticks:{color:'#9fb3c8',callback:v=>fmtN(v)},grid:{color:'#2c4055'}},
+      y1:{position:'right',title:{display:true,text:'客单价(元)',color:'#f59e0b'},ticks:{color:'#f59e0b',callback:v=>Number(v).toFixed(0)+'元'},grid:{display:false}}
+    }}
   });
-  // chart3 scatter price vs count
-  destroy('cScatter');
-  const scCities=cities.slice(0,18);
-  charts.cScatter=new Chart(document.getElementById('cScatter'),{
-    type:'bubble',
-    data:{datasets:scCities.map((c,i)=>({label:c,data:[{x:cm[c].cum_cnt,y:cm[c].cum_price,r:Math.max(4,Math.min(30,Math.sqrt(cm[c].cum_amt)/8))}],backgroundColor:PALETTE[i%PALETTE.length]}))},
-    options:{plugins:{legend:{position:'right',labels:{color:'#9fb3c8',font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': 课次'+fmtN(c.raw.x)+' 单价'+fmt1(c.raw.y)+'元'}},scales:{x:{title:{display:true,text:'累计课次',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},y:{title:{display:true,text:'累计课单价(元)',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}}}}}
-  });
-  // chart4 trend
-  destroy('cTrend');
-  const trend=monthlyTrend(7,5);
-  const tCities = cityFilter?[cityFilter]:cities.slice(0,5);
-  const datasets=[];
-  // national
-  datasets.push({label:'全国',data:Object.values(trend.natByM),borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.1)',borderWidth:2.5,fill:false,tension:.3});
-  // top cities
-  tCities.forEach((c,i)=>{
-    const arr=[];
-    for(let m=1;m<=7;m++){let a=0;for(const r of DATA.coursecost_detail){if(r.month===m&&r.type!=='体验课程'&&r.city===c)a+=r.amt;}arr.push(a);}
-    datasets.push({label:c,data:arr,borderColor:PALETTE[i%PALETTE.length],backgroundColor:'transparent',borderWidth:1.8,fill:false,tension:.3});
-  });
-  charts.cTrend=new Chart(document.getElementById('cTrend'),{
-    type:'line',data:{labels:MONTHS.slice(0,7),datasets},
-    options:{plugins:{legend:{labels:{color:'#9fb3c8',boxWidth:14,font:{size:11}}}},scales:{x:{ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},y:{ticks:{color:'#9fb3c8',callback:v=>(v/10000).toFixed(0)+'万'},grid:{color:'#2c4055'}}}}
-  });
+  document.getElementById('cCumTrendTitle').textContent='累计课次与累计客单价趋势（'+scopeName+' · 1-'+MONTHS[month-1]+'）';
+  document.getElementById('cMonTrendTitle').textContent='当月课次与当月客单价趋势（'+scopeName+' · 1-'+MONTHS[month-1]+'）';
   // table
   const t=document.getElementById('courseTable');
   let rows=`<thead><tr><th>城市</th><th>累计课耗</th><th>累计课次</th><th>本年课单价</th><th>累计常规课课耗</th><th>累计常规课课次</th><th>常规课单价</th><th>当月课耗</th><th>当月课次</th><th>当月课单价</th><th>当月常规课课耗</th><th>当月常规课课次</th></tr></thead><tbody>`;
