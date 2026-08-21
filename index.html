@@ -150,8 +150,8 @@ function computeCourse(month){
     const o=byCity[c];
     const isReg = r.type==='常规课程';
     const isTrial = r.type==='体验课程';
-    if(r.month<=month && !isTrial){ o.cum_amt+=r.amt; o.cum_cnt+=r.cnt; natCum.cum_amt+=r.amt; natCum.cum_cnt+=r.cnt; }
-    if(r.month<=month && isReg){ o.reg_amt+=r.amt; o.reg_cnt+=r.cnt; natCum.reg_amt+=r.amt; natCum.reg_cnt+=r.cnt; }
+    if(r.month<=month && !isTrial){ o.cum_amt+=r.amt; o.cum_cnt+=r.cnt; if(c!=='大连'){ natCum.cum_amt+=r.amt; natCum.cum_cnt+=r.cnt; } }
+    if(r.month<=month && isReg){ o.reg_amt+=r.amt; o.reg_cnt+=r.cnt; if(c!=='大连'){ natCum.reg_amt+=r.amt; natCum.reg_cnt+=r.cnt; } }
     if(r.month===month && !isTrial){ o.mon_amt+=r.amt; o.mon_cnt+=r.cnt; natCum.mon_amt+=r.amt; natCum.mon_cnt+=r.cnt; }
     if(r.month===month && isReg){ o.mon_reg_amt+=r.amt; o.mon_reg_cnt+=r.cnt; natCum.mon_reg_amt+=r.amt; natCum.mon_reg_cnt+=r.cnt; }
   }
