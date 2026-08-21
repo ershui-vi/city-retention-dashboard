@@ -98,8 +98,8 @@ tbody tr:hover{background:var(--panel2)}
 <div id="panel-course" class="tab-panel active">
   <div class="cards" id="courseCards"></div>
   <div class="grid">
-    <div class="panel"><h3 id="cCumTrendTitle">累计课次与累计客单价趋势</h3><div class="chartbox tall"><canvas id="cCumTrend"></canvas></div></div>
-    <div class="panel"><h3 id="cMonTrendTitle">当月课次与当月客单价趋势</h3><div class="chartbox tall"><canvas id="cMonTrend"></canvas></div></div>
+    <div class="panel"><h3 id="cCumTrendTitle">各城市累计课次与累计客单价</h3><div class="chartbox tall"><canvas id="cCumTrend"></canvas></div></div>
+    <div class="panel"><h3 id="cMonTrendTitle">各月课次与当月客单价趋势（全国 · 1-7月）</h3><div class="chartbox tall"><canvas id="cMonTrend"></canvas></div></div>
   </div>
   <div class="panel"><h3>城市课次明细表</h3>
     <div class="tblwrap"><table id="courseTable"></table></div>
@@ -229,36 +229,40 @@ function renderCourse(month,cityFilter){
   ];
   document.getElementById('courseCards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c.k}</div><div class="v">${c.v}${c.u?'<small>'+c.u+'</small>':''}</div></div>`).join('');
 
-  const showCities = cityFilter&&cityFilter!=='全国' ? [cityFilter] : cities.slice(0,15);
-  // ---- 组合图1: 累计（柱=累计课次, 折线=累计客单价·次轴） ----
+  // ---- 组合图1: 实体累计（横轴=城市/校区; 柱=累计课次, 折线=累计客单价·次轴） ----
   const isNat = !cityFilter || cityFilter==='全国';
-  const scopeName = isNat ? '全国' : cityFilter;
-  const s = {labels:MONTHS.slice(0,month), cumCnt:[], cumPrice:[], monCnt:[], monPrice:[]};
-  let cc=0, ca=0;
+  const ent={};
+  for(const r of DATA.coursecost_detail){
+    if(r.type==='体验课程' || r.month>month) continue;
+    if(isNat){ if(r.city==='全国'||r.city==='大连') continue; const k=r.city; (ent[k]=ent[k]||{cnt:0,amt:0}); ent[k].cnt+=r.cnt; ent[k].amt+=r.amt; }
+    else { if(r.city!==cityFilter) continue; const k=r.campus||r.city; (ent[k]=ent[k]||{cnt:0,amt:0}); ent[k].cnt+=r.cnt; ent[k].amt+=r.amt; }
+  }
+  const entKeys=Object.keys(ent).sort((a,b)=>ent[b].cnt-ent[a].cnt);
+  const entCnt=entKeys.map(k=>ent[k].cnt);
+  const entPrice=entKeys.map(k=>ent[k].cnt?ent[k].amt/ent[k].cnt:0);
+  destroy('cCumTrend');
+  charts.cCumTrend=new Chart(document.getElementById('cCumTrend'),{
+    type:'bar',
+    data:{labels:entKeys,datasets:[
+      {type:'bar',label:'累计课次',data:entCnt,backgroundColor:'rgba(59,130,246,.7)',borderColor:'#3b82f6',borderWidth:1,borderRadius:3,yAxisID:'y'},
+      {type:'line',label:'累计客单价(元)',data:entPrice,borderColor:'#ef4444',backgroundColor:'transparent',borderWidth:2.5,tension:.3,pointRadius:3,pointBackgroundColor:'#ef4444',yAxisID:'y1'}
+    ]},
+    options:{plugins:{legend:{labels:{color:'#9fb3c8',boxWidth:14,font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.type==='line'?c.dataset.label+': '+fmt1(c.raw)+'元':c.dataset.label+': '+fmtN(c.raw)}}},scales:{
+      x:{ticks:{color:'#9fb3c8',autoSkip:false,maxRotation:45,minRotation:45,font:{size:10}},grid:{color:'#2c4055'}},
+      y:{position:'left',title:{display:true,text:'课次',color:'#9fb3c8'},ticks:{color:'#9fb3c8',callback:v=>fmtN(v)},grid:{color:'#2c4055'}},
+      y1:{position:'right',title:{display:true,text:'客单价(元)',color:'#ef4444'},ticks:{color:'#ef4444',callback:v=>Number(v).toFixed(0)+'元'},grid:{display:false}}
+    }}
+  });
+  // ---- 组合图2: 各月（柱=当月课次, 折线=当月客单价·次轴） ----
+  const s = {labels:MONTHS.slice(0,month), monCnt:[], monPrice:[]};
   for(let m=1;m<=month;m++){
     let mc=0, ma=0;
     for(const r of DATA.coursecost_detail){
       if(r.month!==m || r.type==='体验课程') continue;
       if(isNat ? (r.city!=='全国' && r.city!=='大连') : (r.city===cityFilter)){ mc+=r.cnt; ma+=r.amt; }
     }
-    cc+=mc; ca+=ma;
-    s.cumCnt.push(cc); s.cumPrice.push(cc?ca/cc:0);
     s.monCnt.push(mc); s.monPrice.push(mc?ma/mc:0);
   }
-  destroy('cCumTrend');
-  charts.cCumTrend=new Chart(document.getElementById('cCumTrend'),{
-    type:'bar',
-    data:{labels:s.labels,datasets:[
-      {type:'bar',label:'累计课次',data:s.cumCnt,backgroundColor:'rgba(59,130,246,.7)',borderColor:'#3b82f6',borderWidth:1,borderRadius:3,yAxisID:'y'},
-      {type:'line',label:'累计客单价(元)',data:s.cumPrice,borderColor:'#ef4444',backgroundColor:'transparent',borderWidth:2.5,tension:.3,pointRadius:3,pointBackgroundColor:'#ef4444',yAxisID:'y1'}
-    ]},
-    options:{plugins:{legend:{labels:{color:'#9fb3c8',boxWidth:14,font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.type==='line'?c.dataset.label+': '+fmt1(c.raw)+'元':c.dataset.label+': '+fmtN(c.raw)}}},scales:{
-      x:{ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},
-      y:{position:'left',title:{display:true,text:'课次',color:'#9fb3c8'},ticks:{color:'#9fb3c8',callback:v=>fmtN(v)},grid:{color:'#2c4055'}},
-      y1:{position:'right',title:{display:true,text:'客单价(元)',color:'#ef4444'},ticks:{color:'#ef4444',callback:v=>Number(v).toFixed(0)+'元'},grid:{display:false}}
-    }}
-  });
-  // ---- 组合图2: 当月（柱=当月课次, 折线=当月客单价·次轴） ----
   destroy('cMonTrend');
   charts.cMonTrend=new Chart(document.getElementById('cMonTrend'),{
     type:'bar',
@@ -272,8 +276,8 @@ function renderCourse(month,cityFilter){
       y1:{position:'right',title:{display:true,text:'客单价(元)',color:'#f59e0b'},ticks:{color:'#f59e0b',callback:v=>Number(v).toFixed(0)+'元'},grid:{display:false}}
     }}
   });
-  document.getElementById('cCumTrendTitle').textContent='累计课次与累计客单价趋势（'+scopeName+' · 1-'+MONTHS[month-1]+'）';
-  document.getElementById('cMonTrendTitle').textContent='当月课次与当月客单价趋势（'+scopeName+' · 1-'+MONTHS[month-1]+'）';
+  document.getElementById('cCumTrendTitle').textContent = isNat ? '各城市累计课次与累计客单价（截至'+MONTHS[month-1]+'）' : cityFilter+'各校区累计课次与累计客单价（截至'+MONTHS[month-1]+'）';
+  document.getElementById('cMonTrendTitle').textContent = '各月课次与当月客单价趋势（全国 · 1-7月）';
   // table
   const t=document.getElementById('courseTable');
   let rows=`<thead><tr><th>城市</th><th>累计课耗</th><th>累计课次</th><th>本年课单价</th><th>累计常规课课耗</th><th>累计常规课课次</th><th>常规课单价</th><th>当月课耗</th><th>当月课次</th><th>当月课单价</th><th>当月常规课课耗</th><th>当月常规课课次</th></tr></thead><tbody>`;
