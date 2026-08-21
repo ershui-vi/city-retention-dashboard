@@ -261,7 +261,7 @@ function renderCourse(month,cityFilter){
   charts.cScatter=new Chart(document.getElementById('cScatter'),{
     type:'bubble',
     data:{datasets:scCities.map((c,i)=>({label:c,data:[{x:cm[c].cum_cnt,y:cm[c].cum_price,r:Math.max(4,Math.min(30,Math.sqrt(cm[c].cum_amt)/8))}],backgroundColor:PALETTE[i%PALETTE.length]}))},
-    options:{plugins:{legend:{position:'right',labels:{color:'#9fb3c8',font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': 课次'+fmtN(c.raw.x)+' 单价'+fmt1(c.raw.y)+'元'}},scales:{x:{title:{display:true,text:'累计课次',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},y:{title:{display:true,text:'累计课单价(元)',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}}}}
+    options:{plugins:{legend:{position:'right',labels:{color:'#9fb3c8',font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': 课次'+fmtN(c.raw.x)+' 单价'+fmt1(c.raw.y)+'元'}},scales:{x:{title:{display:true,text:'累计课次',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},y:{title:{display:true,text:'累计课单价(元)',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}}}}}
   });
   // chart4 trend
   destroy('cTrend');
@@ -346,7 +346,7 @@ function renderRetention(month,cityFilter){
   charts.rScatter=new Chart(document.getElementById('rScatter'),{
     type:'bubble',
     data:{datasets:allCities.map((c,i)=>({label:c,data:[{x:(snapByCity[c]?.old_retain_rate||0)*100,y:(snapByCity[c]?.new_retain_rate||0)*100,r:Math.max(4,Math.min(30,Math.sqrt(snapByCity[c]?.year_end_n||1)*0.4))}],backgroundColor:PALETTE[i%PALETTE.length]}))},
-    options:{plugins:{legend:{position:'right',labels:{color:'#9fb3c8',font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': 老生'+fmt1(c.raw.x)+'% 新招'+fmt1(c.raw.y)+'%'}},scales:{x:{title:{display:true,text:'老生留存率(%)',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},y:{title:{display:true,text:'新招生留存率(%)',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}}}}
+    options:{plugins:{legend:{position:'right',labels:{color:'#9fb3c8',font:{size:10},boxWidth:10}},tooltip:{callbacks:{label:c=>c.dataset.label+': 老生'+fmt1(c.raw.x)+'% 新招'+fmt1(c.raw.y)+'%'}},scales:{x:{title:{display:true,text:'老生留存率(%)',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}},y:{title:{display:true,text:'新招生留存率(%)',color:'#9fb3c8'},ticks:{color:'#9fb3c8'},grid:{color:'#2c4055'}}}}}
   });
   // table
   const t=document.getElementById('retTable');
